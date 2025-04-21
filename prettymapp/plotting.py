@@ -3,6 +3,7 @@ import colorsys
 from typing import Tuple, List
 from dataclasses import dataclass
 
+from dataclasses import field
 from geopandas.plotting import _plot_polygon_collection, _plot_linestring_collection
 from geopandas import GeoDataFrame
 import numpy as np
@@ -12,36 +13,49 @@ import matplotlib.font_manager as fm
 from matplotlib.patches import Ellipse
 import matplotlib.patheffects as PathEffects
 
-from prettymapp.settings import STREETS_WIDTH
-
-
-def adjust_lightness(color: str, amount: float = 0.5) -> Tuple[float, float, float]:
-    """
-    In-/Decrease color brightness amount by factor.
-
-    Helper to avoid having the user define background ec color value which is similar to background color.
-
-    via https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
-    """
-    try:
-        c = cnames[color]
-    except KeyError:
-        c = color
-    c = colorsys.rgb_to_hls(*to_rgb(c))
-    adjusted_c = colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
-    return adjusted_c
+from prettymapp.settings import STREETS_WIDTH, STYLES
 
 
 @dataclass
 class Plot:
+    """
+    Main plotting class for prettymapp.
+    
+    Args:
+        df: GeoDataFrame with the geometries to plot
+        aoi_bounds: List of minx, miny, maxx, maxy coordinates, specifying the map extent
+        draw_settings: Dictionary of color & draw settings, see prettymapp.settings.STYLES
+        
+        # Map layout
+        shape: the map shape, "circle" or "rectangle"
+        contour_width: width of the map contour, defaults to 0
+        contour_color: color of the map contour, defaults to "#2F3537"
+        
+        # Optional map text settings e.g. to display location name
+        name_on: whether to display the location name, defaults to False
+        name: the location name to display, defaults to "some name"
+        font_size: font size of the location name, defaults to 25
+        font_color: color of the location name, defaults to "#2F3737"
+        text_x: x-coordinate of the location name, defaults to 0
+        text_y: y-coordinate of the location name, defaults to 0
+        text_rotation: rotation of the location name, defaults to 0
+        credits: Boolean whether to display the OSM&package credits, defaults to True
+        
+        # Map background settings
+        bg_shape: the map background shape, "circle" or "rectangle", defaults to "circle"
+        bg_buffer: buffer around the map, defaults to 2
+        bg_color: color of the map background, defaults to "#F2F4CB"
+    """
     df: GeoDataFrame
     aoi_bounds: List[
         float
     ]  # Not df bounds as could lead to weird plot shapes with unequal geometry distribution.
-    draw_settings: dict
+    draw_settings: dict = field(default_factory=lambda: STYLES["Peach"])
+    # Map layout settings
     shape: str = "circle"
     contour_width: int = 0
     contour_color: str = "#2F3537"
+    # Optional map text settings e.g. to display location name
     name_on: bool = False
     name: str = "some name"
     font_size: int = 25
@@ -49,6 +63,8 @@ class Plot:
     text_x: int = 0
     text_y: int = 0
     text_rotation: int = 0
+    credits: bool = True
+    # Map background settings
     bg_shape: str = "rectangle"
     bg_buffer: int = 2
     bg_color: str = "#F2F4CB"
@@ -86,7 +102,8 @@ class Plot:
             self.set_map_contour()
         if self.name_on:
             self.set_name()
-        self.set_credits(add_package_credit=True)
+        if self.credits:
+            self.set_credits()
 
         return self.fig
 
@@ -225,13 +242,34 @@ class Plot:
             size=self.font_size,
         )
 
-    def set_credits(self, add_package_credit=True):
-        credit_text = "© OpenStreetMap"
-        package_credit_text = "\n prettymapp | prettymaps"
-        if add_package_credit:
-            credit_text = credit_text + package_credit_text
-
-        x = self.xmin + 0.87 * self.xdif
-        y = self.ymin - 0.70 * self.bg_buffer_y
-        text = self.ax.text(x=x, y=y, s=credit_text, c="w", fontsize=9, zorder=6)
+    def set_credits(self, text: str = "© OpenStreetMap\n prettymapp | prettymaps", 
+                x: float | None = None, 
+                y: float | None = None, 
+                fontsize: int = 9, 
+                zorder: int = 6):
+        """
+        Add OSM credits. Defaults to lower right corner of map.
+        """
+        if x is None:
+            x = self.xmin + 0.87 * self.xdif
+        if y is None:
+            y = self.ymin - 0.70 * self.bg_buffer_y
+        text = self.ax.text(x=x, y=y, s=text, c="w", fontsize=fontsize, zorder=zorder)
         text.set_path_effects([PathEffects.withStroke(linewidth=3, foreground="black")])
+
+
+def adjust_lightness(color: str, amount: float = 0.5) -> Tuple[float, float, float]:
+    """
+    In-/Decrease color brightness amount by factor.
+
+    Helper to avoid having the user define background ec color value which is similar to background color.
+
+    via https://stackoverflow.com/questions/37765197/darken-or-lighten-a-color-in-matplotlib
+    """
+    try:
+        c = cnames[color]
+    except KeyError:
+        c = color
+    c = colorsys.rgb_to_hls(*to_rgb(c))
+    adjusted_c = colorsys.hls_to_rgb(c[0], max(0, min(1, amount * c[1])), c[2])
+    return adjusted_c

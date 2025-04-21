@@ -31,6 +31,8 @@ simplified configuration interfaces. It is partially tested and adds a [streamli
 
 ## Running the app locally
 
+You can use the webapp directly under [prettymapp.streamlit.app](https://prettymapp.streamlit.app/) or run it locally via:
+
 ```bash
 git clone https://github.com/chrieke/prettymapp.git
 cd prettymapp
@@ -51,6 +53,8 @@ pip install prettymapp
 
 **Define the area, download and plot the OSM data:**
 
+You can select from 4 [predefined styles](prettymapp/settings.py#L35): `Peach`, `Auburn`, `Citrus` and `Flannel`.
+
 ```python
 from prettymapp.geo import get_aoi
 from prettymapp.osm import get_osm_geometries
@@ -63,12 +67,57 @@ df = get_osm_geometries(aoi=aoi)
 fig = Plot(
     df=df,
     aoi_bounds=aoi.bounds,
-    draw_settings=STYLES["Peach"]
+    draw_settings=STYLES["Peach"],
 ).plot_all()
 
 fig.savefig("map.jpg")
 ```
 
-To customize the map appearance, use the additional arguments of the [`Plot`](plotting.py#L36) class (e.g. `shape`, 
-`contour_width` etc.). Check the preconfigured [styles](prettymapp/settings.py#L35) and 
-webapp [examples](streamlit-prettymapp/examples.json) for inspiration.
+You can also plot exported OSM XML files e.g. from openstreetmap.org:
+
+```python
+from prettymapp.osm import get_osm_geometries_from_xml
+
+df = get_osm_geometries_from_xml(filepath="Berlin.osm")
+aoi_bounds = df.total_bounds
+...
+```
+
+**Customize styles & layers**
+
+Edit the `draw_settings` input to create your own custom styles! The map layout can be further customized with the additional arguments of the [`Plot`](prettymapp/plotting.py#L24) class (e.g. `shape`, `contour_width` etc.). Check the webapp [examples](streamlit-prettymapp/examples.json) for inspiration.
+
+```python
+from prettymapp.settings import STYLES
+
+custom_style = STYLES["Peach"].copy()
+custom_style["urban"] = {
+    "cmap": ["#3452eb"],
+    "ec": "#E9724C",
+    "lw": 0.2,
+    "zorder": 4,
+}
+
+fig = Plot(
+    df=df,
+    aoi_bounds=aoi.bounds,
+    draw_settings=custom_style,
+    shape="circle",
+    contour_width=0,
+).plot_all()
+
+```
+
+You can also customize the selection of OSM landcover classes that should be displayed! Customize the 
+default settings or create your own dictionary! See [settings.py](prettymapp/settings.py#L3) for the defaults.
+
+```python
+from prettymapp.settings import LANDCOVER_CLASSES
+
+custom_lc_classes = LANDCOVER_CLASSES.copy()
+custom_lc_classes["urban"]["building"] = False # drops all building subclasses
+custom_lc_classes["grassland"]["leisure"] = True # Include all leisure subclasses
+custom_lc_classes["grassland"]["natural"] = ["island"] # Selects only specific natural subclasses
+
+df = get_osm_geometries(aoi=aoi, landcover_classes=custom_lc_classes)
+```

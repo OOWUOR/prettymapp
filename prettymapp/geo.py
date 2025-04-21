@@ -54,8 +54,7 @@ def get_aoi(
     df = GeoDataFrame(
         DataFrame([0], columns=["id"]), crs="EPSG:4326", geometry=[Point(lon, lat)]
     )
-    utm_crs = df.estimate_utm_crs()
-    df = df.to_crs(utm_crs)
+    df = df.to_crs(df.estimate_utm_crs())
     df.geometry = df.geometry.buffer(radius)
     df = df.to_crs(crs=4326)
     poly = df.iloc[0].geometry
@@ -78,10 +77,13 @@ def explode_multigeometries(df: GeoDataFrame) -> GeoDataFrame:
     df_multi = df[mask]
     for _, row in df_multi.iterrows():
         df_temp = GeoDataFrame(
-            pd.DataFrame.from_records([row.to_dict()] * len(row.geometry.geoms)), crs="EPSG:4326"
+            pd.DataFrame.from_records([row.to_dict()] * len(row.geometry.geoms)),
+            crs="EPSG:4326",
         )
         df_temp.geometry = list(row.geometry.geoms)
-        outdf = GeoDataFrame(pd.concat([outdf, df_temp], ignore_index=True), crs="EPSG:4326")
+        outdf = GeoDataFrame(
+            pd.concat([outdf, df_temp], ignore_index=True), crs="EPSG:4326"
+        )
 
     outdf = outdf.reset_index(drop=True)
     return outdf
